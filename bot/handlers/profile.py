@@ -6,7 +6,9 @@ from bot.keyboards import (
     gender_keyboard, goal_keyboard, level_keyboard,
     cancel_and_restart_keyboard, remove_keyboard, main_menu_keyboard
 )
+from aiogram.filters import Command
 from backend.llm import generate_plan
+from backend.storage import load_plan
 router = Router()
 
 @router.message(F.text == "Создать новый план")
@@ -160,7 +162,40 @@ async def finish_profile(message: Message, state: FSMContext):
 
     await message.answer("Генерирую план, подожди немного... ⏳")
 
-    plan = await generate_plan(data)
-    
+    plan = await generate_plan(message.from_user.id, data)
+
     await message.answer(plan, reply_markup=main_menu_keyboard())
     await state.clear()
+
+@router.message(Command("myplan"))
+async def cmd_myplan(message: Message) -> None:
+    user_id = message.from_user.id
+    record = load_plan(user_id)
+ 
+    if record is None:
+        await message.answer(
+            "У тебя пока нет сохранённого плана.\n"
+            "Нажми «Создать новый план» в главном меню, чтобы сгенерировать его."
+        )
+        return
+ 
+    generated_at = record.get("generated_at", "неизвестно")
+    plan_text = record.get("plan", "")
+    profile = record.get("profile", {})
+ 
+    header = (
+        f"📋 *Твой план* (создан {generated_at})\n\n"
+        f"*Профиль:*\n"
+        f"• Пол: {profile.get('gender')}\n"
+        f"• Возраст: {profile.get('age')} лет\n"
+        f"• Рост / вес: {profile.get('height')} см / {profile.get('weight')} кг\n"
+        f"• Цель: {profile.get('goal')}\n"
+        f"• Уровень: {profile.get('level')}\n"
+        f"• Тренировок в неделю: {profile.get('training_days')}\n"
+        f"• Место: {profile.get('equipment')}\n"
+        f"• Ограничения: {profile.get('restrictions')}\n\n"
+        "─────────────────────\n"
+    )
+ 
+    await message.answer(header, parse_mode="Markdown")
+    await message.answer(plan_text)
