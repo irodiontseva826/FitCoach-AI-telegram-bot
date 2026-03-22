@@ -6,7 +6,7 @@ from bot.keyboards import (
     gender_keyboard, goal_keyboard, level_keyboard,
     cancel_and_restart_keyboard, remove_keyboard, main_menu_keyboard
 )
-
+from backend.llm import generate_plan
 router = Router()
 
 @router.message(F.text == "Создать новый план")
@@ -158,19 +158,9 @@ async def finish_profile(message: Message, state: FSMContext):
     await state.update_data(restrictions=restrictions)
     data = await state.get_data()
 
-    summary = (
-        "Данные собраны!\n\n"
-        f"Пол: {data.get('gender')}\n"
-        f"Возраст: {data.get('age')} лет\n"
-        f"Рост: {data.get('height')} см\n"
-        f"Вес: {data.get('weight')} кг\n"
-        f"Цель: {data.get('goal')}\n"
-        f"Уровень: {data.get('level')}\n"
-        f"Дней тренировок в неделю: {data.get('training_days')}\n"
-        f"Место тренировок: {data.get('equipment')}\n"
-        f"Ограничения в еде: {data.get('restrictions')}\n\n"
-        "Сейчас я бы отправил это на генерацию плана... (покажем заглушку)"
-    )
+    await message.answer("Генерирую план, подожди немного... ⏳")
 
-    await message.answer(summary, reply_markup=main_menu_keyboard())
+    plan = await generate_plan(data)
+    
+    await message.answer(plan, reply_markup=main_menu_keyboard())
     await state.clear()
