@@ -1,4 +1,5 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, \
+    InlineKeyboardButton
 
 def cancel_and_restart_keyboard():
     return ReplyKeyboardMarkup(
@@ -58,3 +59,11 @@ def main_menu_keyboard():
         resize_keyboard=True,
         one_time_keyboard=False
     )
+
+def plan_action_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Изменить цель", callback_data="adjust_goal")],
+        [InlineKeyboardButton(text="Добавить/убрать продукт", callback_data="adjust_food")],
+        [InlineKeyboardButton(text="Сделать тренировки легче/тяжелее", callback_data="adjust_training")],
+        [InlineKeyboardButton(text="Задать любой вопрос коучу", callback_data="free_chat")],
+    ])

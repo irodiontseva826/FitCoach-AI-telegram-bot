@@ -4,10 +4,19 @@ from aiogram.fsm.context import FSMContext
 from bot.states import ProfileForm
 from bot.keyboards import (
     gender_keyboard, goal_keyboard, level_keyboard,
-    cancel_and_restart_keyboard, remove_keyboard, main_menu_keyboard
+    cancel_and_restart_keyboard, remove_keyboard, plan_action_keyboard
 )
+import json
+from pathlib import Path
+
+STORAGE_DIR = Path("data")
+STORAGE_DIR.mkdir(exist_ok=True)
 
 router = Router()
+
+async def save_user_data(user_id: int, data: dict, plan: str = ""):
+    file = STORAGE_DIR / f"{user_id}.json"
+    file.write_text(json.dumps({"profile": data, "plan": plan}, ensure_ascii=False, indent=2), encoding="utf-8")
 
 @router.message(F.text == "Создать новый план")
 async def start_profile(message: Message, state: FSMContext):
@@ -172,5 +181,7 @@ async def finish_profile(message: Message, state: FSMContext):
         "Сейчас я бы отправил это на генерацию плана... (покажем заглушку)"
     )
 
-    await message.answer(summary, reply_markup=main_menu_keyboard())
+    await save_user_data(message.from_user.id, data, plan="План пока не сгенерирован")
+    await message.answer(summary, reply_markup=plan_action_keyboard())
+
     await state.clear()
