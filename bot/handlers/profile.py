@@ -1,14 +1,15 @@
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import Command
 from bot.states import ProfileForm
 from bot.keyboards import (
     gender_keyboard, goal_keyboard, level_keyboard,
-    cancel_and_restart_keyboard, remove_keyboard, main_menu_keyboard
+    cancel_and_restart_keyboard, remove_keyboard, main_menu_keyboard, plan_action_keyboard
 )
-from aiogram.filters import Command
 from backend.llm import generate_plan
 from backend.storage import load_plan
+
 router = Router()
 
 @router.message(F.text == "Создать новый план")
@@ -164,25 +165,34 @@ async def finish_profile(message: Message, state: FSMContext):
 
     plan = await generate_plan(message.from_user.id, data)
 
-    await message.answer(plan, reply_markup=main_menu_keyboard())
+    chunk_size = 4000
+    for i in range(0, len(plan), chunk_size):
+        chunk = plan[i:i + chunk_size]
+        await message.answer(chunk)
+
+    await message.answer(
+        "Что хочешь сделать с планом?",
+        reply_markup=plan_action_keyboard()
+    )
+    await message.answer("Главное меню:", reply_markup=main_menu_keyboard())
     await state.clear()
 
 @router.message(Command("myplan"))
 async def cmd_myplan(message: Message) -> None:
     user_id = message.from_user.id
     record = load_plan(user_id)
- 
+
     if record is None:
         await message.answer(
             "У тебя пока нет сохранённого плана.\n"
             "Нажми «Создать новый план» в главном меню, чтобы сгенерировать его."
         )
         return
- 
+
     generated_at = record.get("generated_at", "неизвестно")
     plan_text = record.get("plan", "")
     profile = record.get("profile", {})
- 
+
     header = (
         f"📋 *Твой план* (создан {generated_at})\n\n"
         f"*Профиль:*\n"
@@ -196,6 +206,17 @@ async def cmd_myplan(message: Message) -> None:
         f"• Ограничения: {profile.get('restrictions')}\n\n"
         "─────────────────────\n"
     )
- 
+
     await message.answer(header, parse_mode="Markdown")
-    await message.answer(plan_text)
+    chunk_size = 4000
+    for i in range(0, len(plan_text), chunk_size):
+        await message.answer(plan_text[i:i + chunk_size])
+
+    await message.answer(
+        "Что хочешь изменить?",
+        reply_markup=plan_action_keyboard()
+    )
+
+@router.message(F.text == "Мой текущий план")
+async def handle_myplan_button(message: Message):
+    await cmd_myplan(message)
