@@ -14,4 +14,4 @@ async def ask_llm(prompt: str) -> str:
         )
         return response.text
     except Exception as e:
-        return f"Ошибка LLM: {e}. Попробуем ещё раз..."
+        return "⚠️ Сервер перегружен или лимит запросов исчерпан. Попробуй через минуту 🙏"

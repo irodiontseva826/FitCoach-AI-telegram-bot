@@ -1,10 +1,9 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import Command
 from bot.utils import ask_llm
 from bot.keyboards import plan_action_keyboard
-from pathlib import Path
-import json
+from backend.llm import adjust_plan
+from backend.storage import load_plan
 
 router = Router()
 
@@ -13,40 +12,76 @@ async def free_chat_handler(message: Message):
     if message.text.startswith('/'):
         return
 
-    STORAGE_DIR = Path("data")
-    file = STORAGE_DIR / f"{message.from_user.id}.json"
+    record = load_plan(message.from_user.id)
 
     profile_text = "Профиль пока не собран"
     last_plan = "План пока не сгенерирован"
 
-    if file.exists():
-        try:
-            user_data = json.loads(file.read_text(encoding="utf-8"))
-            profile_text = "\n".join([f"{k}: {v}" for k,v in user_data.get("profile", {}).items()])
-            last_plan = user_data.get("plan", "План пока пустой")
-        except Exception as e:
-            await message.answer(f"Ошибка чтения данных: {e}")
-            return
+    if record:
+        profile = record.get("profile", {})
+        last_plan = record.get("plan", "")
+        profile_text = "\n".join([f"{k}: {v}" for k, v in profile.items()])
 
     await message.answer("🤖 Думаю над твоим вопросом... ⏳")
 
     prompt = f"""
-Ты — строгий, но добрый ИИ-тренер FitCoach AI.
-У пользователя сейчас такие данные:
-{profile_text}
+    Ты — ИИ-тренер FitCoach AI.
 
-Последний сгенерированный план:
-{last_plan}
+    Профиль пользователя:
+    {profile_text}
 
-Пользователь написал:
-"{message.text}"
+    Текущий план:
+    {last_plan}
 
-Ответь по делу, используй эмодзи, сохраняй дружелюбный тон.
-Если пользователь просит изменить план — предложи новую версию.
-"""
+    Запрос пользователя:
+    "{message.text}"
 
-    response = await ask_llm(prompt)
-    await message.answer(response, parse_mode="HTML", reply_markup=plan_action_keyboard())
+    Если это вопрос — ответь кратко и по делу.
+
+    Если это изменение плана — НЕ задавай вопросов, а сразу напиши, как именно изменится план.
+
+    Будь конкретным, дружелюбным и используй эмодзи.
+    """
+
+    text = message.text.lower()
+
+    trigger_words = [
+        "убери", "убрать", "замени", "заменить",
+        "добавь", "добавить", "измени", "изменить",
+        "сделай", "сделать", "исключи", "исключить"
+    ]
+
+    if record and any(word in text for word in trigger_words):
+        await message.answer("🔄 Обновляю план под твой запрос...")
+
+        result = await adjust_plan(message.from_user.id, message.text)
+
+        if not result["ok"]:
+            await message.answer(
+                result["data"],
+                reply_markup=plan_action_keyboard()
+            )
+            return
+
+        new_plan = result["data"]
+
+        chunk_size = 4000
+        for i in range(0, len(new_plan), chunk_size):
+            await message.answer(new_plan[i:i + chunk_size])
+
+        await message.answer(
+            "План обновлён ✅",
+            reply_markup=plan_action_keyboard()
+        )
+        return
+
+    else:
+        response = await ask_llm(prompt)
+        await message.answer(
+            response,
+            parse_mode="HTML",
+            reply_markup=plan_action_keyboard()
+        )
 
 @router.callback_query(F.data.in_({"adjust_goal", "adjust_food", "adjust_training", "free_chat"}))
 async def handle_plan_buttons(callback: CallbackQuery):
@@ -60,5 +95,9 @@ async def handle_plan_buttons(callback: CallbackQuery):
         "adjust_food": "Какой продукт добавить/убрать?",
         "adjust_training": "Что изменить в тренировках (легче/тяжелее/заменить)?"
     }
-    await callback.message.answer(texts.get(callback.data, "Что именно хочешь изменить?"))
+
+    await callback.message.answer(
+        texts.get(callback.data),
+        reply_markup=None
+    )
     await callback.answer()
