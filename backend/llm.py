@@ -3,7 +3,8 @@ from google import genai
 from dotenv import load_dotenv
 from bot.config import GEMINI_MODEL
 from backend.storage import save_plan, load_plan
-from bot.prompts import ADJUST_PROMPT_TEMPLATE
+from bot.prompts import ADJUST_PROMPT_TEMPLATE, SYSTEM_PROMPT
+from backend.storage import save_plan
 
 load_dotenv()
 
@@ -15,17 +16,16 @@ if proxy:
 client = genai.Client(api_key=os.getenv("LLM_API_KEY"))
 
 def build_prompt(data: dict) -> str:
-    return (
-        f"Я {data['gender']}, мне {data['age']} лет. "
-        f"Рост {data['height']} см, вес {data['weight']} кг. "
-        f"Цель: {data['goal']}. "
-        f"Уровень подготовки: {data['level']}. "
-        f"Готов(а) тренироваться {data['training_days']} дней в неделю. "
-        f"Место тренировок: {data['equipment']}. "
-        f"Ограничения в питании: {data['restrictions']}. "
-        "Составь подробный план питания и тренировок на неделю. "
-        "Важно, чтобы прорабатывались разные группы мышц, "
-        "а питание было разнообразным и доступным в средней полосе России."
+    return SYSTEM_PROMPT.format(
+        gender=data['gender'],
+        age=data['age'],
+        height=data['height'],
+        weight=data['weight'],
+        goal=data['goal'],
+        level=data['level'],
+        training_days=data['training_days'],
+        equipment=data['equipment'],
+        restrictions=data['restrictions'],
     )
 
 async def generate_plan(user_id: int, data: dict) -> str:
