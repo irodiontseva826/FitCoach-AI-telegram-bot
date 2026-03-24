@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
-from bot.utils import ask_llm
+from bot.utils import ask_llm, send_plan_split
 from bot.keyboards import plan_action_keyboard
 from backend.llm import adjust_plan
 from backend.storage import load_plan
@@ -65,9 +65,7 @@ async def free_chat_handler(message: Message):
 
         new_plan = result["data"]
 
-        chunk_size = 4000
-        for i in range(0, len(new_plan), chunk_size):
-            await message.answer(new_plan[i:i + chunk_size])
+        await send_plan_split(message, new_plan)
 
         await message.answer(
             "План обновлён ✅",
@@ -79,7 +77,7 @@ async def free_chat_handler(message: Message):
         response = await ask_llm(prompt)
         await message.answer(
             response,
-            parse_mode="HTML",
+            parse_mode="Markdown",
             reply_markup=plan_action_keyboard()
         )
 
@@ -98,6 +96,7 @@ async def handle_plan_buttons(callback: CallbackQuery):
 
     await callback.message.answer(
         texts.get(callback.data),
+        parse_mode="Markdown",
         reply_markup=None
     )
     await callback.answer()
