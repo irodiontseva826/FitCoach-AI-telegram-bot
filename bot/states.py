@@ -10,3 +10,6 @@ class ProfileForm(StatesGroup):
     training_days = State()
     equipment = State()
     restrictions = State()
+
+class RecipeSearch(StatesGroup):
+    waiting_for_query = State()

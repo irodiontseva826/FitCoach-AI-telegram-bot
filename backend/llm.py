@@ -15,6 +15,18 @@ if proxy:
 
 client = genai.Client(api_key=os.getenv("LLM_API_KEY"))
 
+def clean_markdown(text: str) -> str:
+    if not text:
+        return text
+    replacements = [
+        ("**", ""), ("*", ""),("__", ""), ("```", ""), ("`", ""),
+        ("## ", ""), ("### ", ""), ("#### ", ""),
+        ("# ", "")
+    ]
+    for old, new in replacements:
+        text = text.replace(old, new)
+    return text.strip()
+
 def build_prompt(data: dict) -> str:
     return SYSTEM_PROMPT.format(
         gender=data['gender'],
@@ -34,7 +46,7 @@ async def generate_plan(user_id: int, data: dict) -> str:
         model=GEMINI_MODEL,
         contents=prompt
     )
-    plan = response.text
+    plan = clean_markdown(response.text)
     save_plan(user_id, data, plan)
     return plan
 
@@ -61,7 +73,7 @@ async def adjust_plan(user_id: int, user_input: str) -> str:
             contents=prompt
         )
 
-        new_plan = response.text
+        new_plan = clean_markdown(response.text)
 
         if not new_plan:
             return "⚠️ Не удалось сгенерировать план. Попробуй ещё раз."
