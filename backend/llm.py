@@ -21,7 +21,7 @@ def clean_markdown(text: str) -> str:
     replacements = [
         ("**", ""), ("*", ""),("__", ""), ("```", ""), ("`", ""),
         ("## ", ""), ("### ", ""), ("#### ", ""),
-        ("# ", "")
+        ("# ", ""), ("#", "")
     ]
     for old, new in replacements:
         text = text.replace(old, new)
